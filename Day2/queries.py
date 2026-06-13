@@ -38,6 +38,17 @@ LIMIT 5;
 
 for row in cursor.fetchall():
     print(row)
+
+print("\nQuery 4: Classification Results\n")
+
+cursor.execute("""
+SELECT title, category, affects_finance
+FROM notifications
+LIMIT 10;
+""")
+
+for row in cursor.fetchall():
+    print(row)
 conn.close()
 
 
