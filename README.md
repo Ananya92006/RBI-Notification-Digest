@@ -130,7 +130,7 @@ RBI-Notification-Digest/
 ```
 
 ---
-
+(remaining all files are of testing that has been done during implementation)
 ## Installation
 
 ### Clone Repository
