@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>RBI Notification Intelligence Dashboard</title>
+
+    <style>
+
+        body{
+            font-family: Arial, sans-serif;
+            margin:40px;
+            background:#f5f7fa;
+        }
+
+        h1{
+            text-align:center;
+            color:#1f2937;
+        }
+
+        h2{
+            color:#2563eb;
+        }
+
+        .card{
+            background:white;
+            padding:20px;
+            border-radius:10px;
+            margin-bottom:25px;
+            box-shadow:0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .stats-container{
+            display:flex;
+            gap:20px;
+            flex-wrap:wrap;
+            margin-bottom:25px;
+        }
+
+        .stat-card{
+            flex:1;
+            min-width:180px;
+            background:white;
+            padding:20px;
+            border-radius:10px;
+            text-align:center;
+            box-shadow:0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .stat-card h2{
+            margin:10px 0 0;
+        }
+
+        textarea{
+            width:100%;
+            padding:10px;
+            border-radius:5px;
+            border:1px solid #ccc;
+        }
+
+        button{
+            background:#2563eb;
+            color:white;
+            border:none;
+            padding:10px 20px;
+            border-radius:5px;
+            cursor:pointer;
+        }
+
+        button:hover{
+            background:#1d4ed8;
+        }
+
+        table{
+            width:100%;
+            border-collapse:collapse;
+            background:white;
+        }
+
+        th,td{
+            border:1px solid #ddd;
+            padding:10px;
+            text-align:left;
+            vertical-align:top;
+        }
+
+        th{
+            background:#2563eb;
+            color:white;
+        }
+
+        tr:nth-child(even){
+            background:#f9fafb;
+        }
+
+        .yes{
+            color:green;
+            font-weight:bold;
+        }
+
+        .no{
+            color:red;
+            font-weight:bold;
+        }
+
+        .result{
+            background:#eef6ff;
+            border-left:5px solid #2563eb;
+            padding:15px;
+            white-space:pre-wrap;
+        }
+
+        .table-container{
+            overflow-x:auto;
+        }
+
+        .search-box{
+            width:350px;
+            padding:10px;
+            border:1px solid #ccc;
+            border-radius:5px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<h1>RBI Notification Intelligence Dashboard</h1>
+
+<div class="stats-container">
+
+    <div class="stat-card">
+        <h3>Total Notifications</h3>
+        <h2>{{ total_notifications }}</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Personal Finance</h3>
+        <h2>{{ personal_finance_count }}</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>High Impact</h3>
+        <h2>{{ high_impact_count }}</h2>
+    </div>
+
+    <div class="stat-card">
+        <h3>Foreign Exchange</h3>
+        <h2>{{ foreign_exchange_count }}</h2>
+    </div>
+
+</div>
+
+<div class="card">
+
+    <h2>Analyze New RBI Notification</h2>
+
+    <form method="POST">
+
+        <textarea
+            name="notification"
+            rows="6"
+            placeholder="Paste RBI notification title or details here..."
+            required></textarea>
+
+        <br><br>
+
+        <button type="submit">
+            Analyze with Gemini
+        </button>
+
+    </form>
+
+</div>
+
+{% if result %}
+
+<div class="card">
+
+    <h2>Gemini Analysis</h2>
+
+    <div class="result">
+        {{ result }}
+    </div>
+
+</div>
+
+{% endif %}
+
+<div class="card">
+
+    <h2>Stored RBI Notifications</h2>
+
+    <form method="GET" style="margin-bottom:20px;">
+
+        <input
+            type="text"
+            name="search"
+            value="{{ search }}"
+            placeholder="Search notification by title..."
+            class="search-box">
+
+        <button type="submit">
+            Search
+        </button>
+
+    </form>
+
+    <div class="table-container">
+
+        <table>
+
+            <tr>
+                <th>Date</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Affects Finance</th>
+                <th>Impact Level</th>
+                <th>Target Audience</th>
+                <th>Summary</th>
+                <th>Link</th>
+            </tr>
+
+            {% for row in notifications %}
+
+            <tr>
+
+                <td>{{ row[0] }}</td>
+                <td>{{ row[1] }}</td>
+                <td>{{ row[2] }}</td>
+
+                <td>
+                    {% if row[3] == 1 %}
+                        <span class="yes">Yes</span>
+                    {% else %}
+                        <span class="no">No</span>
+                    {% endif %}
+                </td>
+
+                <td>{{ row[4] }}</td>
+                <td>{{ row[5] }}</td>
+                <td>{{ row[6] }}</td>
+
+                <td>
+                    <a href="{{ row[7] }}" target="_blank">
+                        Open
+                    </a>
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </table>
+
+    </div>
+
+</div>
+
+</body>
+</html>

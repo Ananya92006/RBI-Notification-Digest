@@ -46,9 +46,17 @@ SELECT title, category, affects_finance
 FROM notifications
 LIMIT 10;
 """)
-
+cursor.execute("""
+SELECT COUNT(*)
+FROM notifications
+WHERE impact_level IS NULL
+   OR target_audience IS NULL
+   OR gemini_summary IS NULL;
+""")               
 for row in cursor.fetchall():
     print(row)
+
+   
 conn.close()
 
 

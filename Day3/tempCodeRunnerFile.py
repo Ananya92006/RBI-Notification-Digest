@@ -31,9 +31,7 @@ cursor = conn.cursor()
 cursor.execute("""
 SELECT id, title
 FROM notifications
-WHERE gemini_summary IS NULL
-   OR impact_level IS NULL
-   OR target_audience IS NULL
+WHERE gemini_category IS NULL
 """)
 
 rows = cursor.fetchall()
@@ -63,14 +61,6 @@ Classification Rules:
 - FPI, Government Securities, Bonds, Derivatives -> Markets
 - Capital Adequacy, Prudential Norms, Governance -> Banking Regulations
 - Currency withdrawal, banknotes, depositor schemes -> Savings Schemes
-
-
-Determine whether the notification directly affects an ordinary citizen's personal finances.
-
-Use:
-1 = Yes (affects savings, deposits, loans, interest rates, remittances, currency usage, investments, or personal banking)
-
-0 = No (primarily affects banks, institutions, regulators, internal compliance, reporting requirements, or governance)
 
 Determine:
 
