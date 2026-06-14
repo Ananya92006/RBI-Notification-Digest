@@ -9,7 +9,7 @@ The project helps users quickly understand RBI notifications without reading len
 ---
 ## Dashboard Preview
 
-<img src="assets/Screenshot (752).png" width="100%">
+<img src="assets/dashboard.png" width="100%">
 ## Features
 
 ### RBI Notification Collection
