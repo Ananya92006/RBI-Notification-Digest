@@ -14,6 +14,7 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 
 app = Flask(__name__)
 
+
 @app.route("/", methods=["GET", "POST"])
 def home():
 
@@ -21,30 +22,103 @@ def home():
 
     if request.method == "POST":
 
-        notification = request.form["notification"]
+        notification = request.form.get(
+            "notification",
+            ""
+        ).strip()
 
         prompt = f"""
-You are an RBI financial analyst.
+You are an expert RBI financial analyst.
 
-Analyze this RBI notification and provide:
+Analyze the RBI notification and determine its category, impact, audience, and relevance to ordinary citizens.
 
-1. Category
-2. Affects Personal Finance (Yes/No)
-3. Impact Level
-4. Target Audience
-5. Short Summary
-6. Reason
+Choose the SINGLE most appropriate category from:
+
+- Interest Rates
+- Foreign Exchange
+- Markets
+- Banking Regulations
+- Savings Schemes
+- Insurance
+- Taxes
+- Other
+
+Category Guidance (examples only, not strict rules):
+
+- Interest Rates: repo rate, reverse repo, CRR, SLR, lending/deposit rates, monetary policy measures.
+- Foreign Exchange: FEMA, FCNR, ECB, foreign currency transactions, remittances, cross-border payments.
+- Markets: government securities, bonds, derivatives, FPI, market operations, trading-related measures.
+- Banking Regulations: prudential norms, capital adequacy, governance, licensing, supervision, compliance requirements, risk management.
+- Savings Schemes: currency withdrawal, banknotes, depositor-focused schemes, public savings initiatives.
+
+Determine whether the notification DIRECTLY affects an ordinary citizen's personal finances.
+
+YES = Directly affects savings, deposits, loans, EMIs, interest rates, remittances, investments, personal banking, or currency usage.
+
+NO = Primarily concerns institutional regulation, compliance, governance, supervisory actions, AML/CFT measures, sanctions implementation, or operational requirements for financial institutions.
+
+Provide the analysis in the following format:
+
+Category:
+Affects Personal Finance:
+Impact Level:
+Target Audience:
+Summary:
+Reason:
 
 Notification:
 {notification}
 """
 
         try:
-            response = model.generate_content(prompt)
-            result = response.text
+
+            if not notification:
+
+                result = """
+⚠️ Please enter an RBI notification.
+"""
+
+            else:
+
+                response = model.generate_content(prompt)
+
+                result = response.text.strip()
+
+                result = result.replace("```", "")
+                result = result.replace("**", "")
 
         except Exception as e:
-            result = f"Error: {str(e)}"
+
+            error_text = str(e)
+
+            if "429" in error_text:
+
+                result = """
+⚠️ Gemini API quota exceeded.
+
+Please try again later or switch to another API key.
+
+The dashboard is still working normally.
+"""
+
+            elif "API_KEY" in error_text.upper():
+
+                result = """
+⚠️ API authentication failed.
+
+Please check your Gemini API key.
+"""
+
+            else:
+
+                result = f"""
+⚠️ Analysis could not be completed.
+
+Reason:
+{error_text}
+
+Please try again later.
+"""
 
     search = request.args.get("search", "")
 
@@ -122,6 +196,7 @@ Notification:
         high_impact_count=high_impact_count,
         foreign_exchange_count=foreign_exchange_count
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True)

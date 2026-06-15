@@ -52,7 +52,9 @@ FROM notifications
 WHERE impact_level IS NULL
    OR target_audience IS NULL
    OR gemini_summary IS NULL;
-""")               
+""")    
+
+
 for row in cursor.fetchall():
     print(row)
 

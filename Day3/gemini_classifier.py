@@ -27,25 +27,28 @@ model = genai.GenerativeModel(
 conn = sqlite3.connect("finance_digest.db")
 cursor = conn.cursor()
 
-# ONLY unclassified notifications
+# Only unclassified notifications
 cursor.execute("""
-SELECT id, title
+SELECT id, title, main_text
 FROM notifications
-WHERE gemini_summary IS NULL
+WHERE gemini_category IS NULL
+   OR gemini_summary IS NULL
    OR impact_level IS NULL
    OR target_audience IS NULL
 """)
 
 rows = cursor.fetchall()
 
-print(f"\nFound {len(rows)} unclassified notifications\n")
+print(f"\nFound {len(rows)} notifications\n")
 
-for notification_id, title in rows:
+for notification_id, title, main_text in rows:
 
     prompt = f"""
 You are an expert RBI financial analyst.
 
-Choose ONLY ONE category from:
+Analyze the RBI notification and determine its category, impact, audience, and relevance to ordinary citizens.
+
+Choose the SINGLE most appropriate category from:
 
 - Interest Rates
 - Foreign Exchange
@@ -56,46 +59,72 @@ Choose ONLY ONE category from:
 - Taxes
 - Other
 
-Classification Rules:
+Category Guidance (examples only, not strict rules):
 
-- Repo Rate, Reverse Repo, CRR, SLR -> Interest Rates
-- FEMA, FCNR, ECB, Foreign Currency -> Foreign Exchange
-- FPI, Government Securities, Bonds, Derivatives -> Markets
-- Capital Adequacy, Prudential Norms, Governance -> Banking Regulations
-- Currency withdrawal, banknotes, depositor schemes -> Savings Schemes
+- Interest Rates: repo rate, reverse repo, CRR, SLR, lending/deposit rates, monetary policy measures.
+- Foreign Exchange: FEMA, FCNR, ECB, foreign currency transactions, remittances, cross-border payments.
+- Markets: government securities, bonds, derivatives, FPI, market operations, trading-related measures.
+- Banking Regulations: prudential norms, capital adequacy, governance, licensing, supervision, compliance requirements, risk management.
+- Savings Schemes: currency withdrawal, banknotes, depositor-focused schemes, public savings initiatives.
 
+Determine whether the notification DIRECTLY affects an ordinary citizen's personal finances.
 
-Determine whether the notification directly affects an ordinary citizen's personal finances.
+Set affects_finance:
 
-Use:
-1 = Yes (affects savings, deposits, loans, interest rates, remittances, currency usage, investments, or personal banking)
+1 = Yes, if it can directly influence:
+- savings
+- deposits
+- loans
+- EMIs
+- interest rates
+- remittances
+- investments
+- personal banking
+- currency usage
 
-0 = No (primarily affects banks, institutions, regulators, internal compliance, reporting requirements, or governance)
+0 = No, if it primarily concerns:
+- institutional regulation
+- compliance requirements
+- governance frameworks
+- supervisory actions
+- reporting obligations
+- AML/CFT measures
+- sanctions implementation
+- operational requirements for banks and financial institutions
 
 Determine:
 
-1. category
-2. affects_finance (0 or 1)
-3. impact_level (High, Medium, Low)
-4. target_audience
-5. summary
-6. reason
+- category
+- affects_finance (0 or 1)
+- impact_level (High, Medium, Low)
+- target_audience
+- summary (maximum 2 sentences)
+- reason
+
+Guidelines for impact_level:
+
+- High: Significant effect on citizens, markets, banking system, or economy.
+- Medium: Noticeable effect on a specific sector, institution type, or customer group.
+- Low: Limited operational, compliance, or administrative impact.
 
 Return ONLY valid JSON.
 
 Example:
 
 {{
-    "category": "Foreign Exchange",
-    "affects_finance": 1,
-    "impact_level": "Medium",
-    "target_audience": "NRI Depositors",
-    "summary": "Introduces a swap facility for FCNR deposits.",
-    "reason": "Impacts foreign currency deposits held by NRIs."
+  "category": "Foreign Exchange",
+  "affects_finance": 1,
+  "impact_level": "Medium",
+  "target_audience": "NRI Depositors",
+  "summary": "Introduces a swap facility for FCNR deposits.",
+  "reason": "Impacts foreign currency deposits and remittance-related activities."
 }}
 
-Notification:
+Notification Title:
 {title}
+
+Notification Content:
+{main_text[:4000]}
 """
 
     try:
@@ -104,19 +133,46 @@ Notification:
 
         text = response.text.strip()
 
-        # Remove markdown formatting
         text = text.replace("```json", "")
         text = text.replace("```", "")
         text = text.strip()
 
-        result = json.loads(text)
+        try:
+            result = json.loads(text)
 
-        gemini_category = result.get("category", "Other")
-        gemini_affects = result.get("affects_finance", 0)
-        gemini_summary = result.get("summary", "")
-        impact_level = result.get("impact_level", "Low")
-        target_audience = result.get("target_audience", "")
-        gemini_reason = result.get("reason", "")
+        except json.JSONDecodeError:
+            print(f"Invalid JSON for: {title}")
+            continue
+
+        gemini_category = result.get(
+            "category",
+            "Other"
+        )
+
+        gemini_affects = result.get(
+            "affects_finance",
+            0
+        )
+
+        gemini_summary = result.get(
+            "summary",
+            ""
+        )
+
+        impact_level = result.get(
+            "impact_level",
+            "Low"
+        )
+
+        target_audience = result.get(
+            "target_audience",
+            ""
+        )
+
+        gemini_reason = result.get(
+            "reason",
+            ""
+        )
 
         cursor.execute("""
         UPDATE notifications
@@ -149,7 +205,6 @@ Notification:
         print(f"  Reason: {gemini_reason}")
         print()
 
-        # Prevent hitting limits too quickly
         time.sleep(2)
 
     except Exception as e:
@@ -157,7 +212,6 @@ Notification:
         print(f"\n✗ Failed: {title}")
         print(e)
 
-        # Stop if Gemini quota exceeded
         if "429" in str(e):
             print("\nQuota exceeded. Stopping classifier.")
             break
