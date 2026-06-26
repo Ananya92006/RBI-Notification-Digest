@@ -1,5 +1,5 @@
 import sqlite3
-import google.generativeai as genai
+from google import genai as genai
 import json
 import time
 import os
