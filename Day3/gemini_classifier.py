@@ -1,12 +1,17 @@
 import sqlite3
-from google import genai as genai
+from google import genai 
 import json
 import time
 import os
 from dotenv import load_dotenv
 
 
-def classify_unclassified(db_path="finance_digest.db"):
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "..", "finance_digest.db")
+
+def classify_unclassified(db_path=DB_PATH):
     """Classify all unclassified notifications using Gemini AI.
     Only processes notifications that haven't been classified yet.
     Returns the number of successfully classified notifications."""
@@ -21,13 +26,8 @@ def classify_unclassified(db_path="finance_digest.db"):
             "GEMINI_API_KEY not found in .env file"
         )
 
-    # Configure Gemini
-    genai.configure(api_key=api_key)
-
-    # Load Model
-    model = genai.GenerativeModel(
-        "gemini-2.5-flash"
-    )
+    # Configure Gemini Client
+    client = genai.Client(api_key=api_key)
 
     # Connect Database
     conn = sqlite3.connect(db_path)
@@ -137,7 +137,10 @@ Notification Content:
 
         try:
 
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
 
             text = response.text.strip()
 
