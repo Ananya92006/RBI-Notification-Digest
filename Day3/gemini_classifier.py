@@ -5,45 +5,53 @@ import time
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
+def classify_unclassified(db_path="finance_digest.db"):
+    """Classify all unclassified notifications using Gemini AI.
+    Only processes notifications that haven't been classified yet.
+    Returns the number of successfully classified notifications."""
 
-if not api_key:
-    raise ValueError(
-        "GEMINI_API_KEY not found in .env file"
+    # Load environment variables
+    load_dotenv()
+
+    api_key = os.getenv("GEMINI_API_KEY")
+
+    if not api_key:
+        raise ValueError(
+            "GEMINI_API_KEY not found in .env file"
+        )
+
+    # Configure Gemini
+    genai.configure(api_key=api_key)
+
+    # Load Model
+    model = genai.GenerativeModel(
+        "gemini-2.5-flash"
     )
 
-# Configure Gemini
-genai.configure(api_key=api_key)
+    # Connect Database
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
 
-# Load Model
-model = genai.GenerativeModel(
-    "gemini-2.5-flash"
-)
+    # Only unclassified notifications
+    cursor.execute("""
+    SELECT id, title, main_text
+    FROM notifications
+    WHERE gemini_category IS NULL
+       OR gemini_summary IS NULL
+       OR impact_level IS NULL
+       OR target_audience IS NULL
+    """)
 
-# Connect Database
-conn = sqlite3.connect("finance_digest.db")
-cursor = conn.cursor()
+    rows = cursor.fetchall()
 
-# Only unclassified notifications
-cursor.execute("""
-SELECT id, title, main_text
-FROM notifications
-WHERE gemini_category IS NULL
-   OR gemini_summary IS NULL
-   OR impact_level IS NULL
-   OR target_audience IS NULL
-""")
+    print(f"\nFound {len(rows)} unclassified notifications\n")
 
-rows = cursor.fetchall()
+    classified_count = 0
 
-print(f"\nFound {len(rows)} notifications\n")
+    for notification_id, title, main_text in rows:
 
-for notification_id, title, main_text in rows:
-
-    prompt = f"""
+        prompt = f"""
 You are an expert RBI financial analyst.
 
 Analyze the RBI notification and determine its category, impact, audience, and relevance to ordinary citizens.
@@ -127,97 +135,106 @@ Notification Content:
 {main_text[:4000]}
 """
 
-    try:
-
-        response = model.generate_content(prompt)
-
-        text = response.text.strip()
-
-        text = text.replace("```json", "")
-        text = text.replace("```", "")
-        text = text.strip()
-
         try:
-            result = json.loads(text)
 
-        except json.JSONDecodeError:
-            print(f"Invalid JSON for: {title}")
-            continue
+            response = model.generate_content(prompt)
 
-        gemini_category = result.get(
-            "category",
-            "Other"
-        )
+            text = response.text.strip()
 
-        gemini_affects = result.get(
-            "affects_finance",
-            0
-        )
+            text = text.replace("```json", "")
+            text = text.replace("```", "")
+            text = text.strip()
 
-        gemini_summary = result.get(
-            "summary",
-            ""
-        )
+            try:
+                result = json.loads(text)
 
-        impact_level = result.get(
-            "impact_level",
-            "Low"
-        )
+            except json.JSONDecodeError:
+                print(f"Invalid JSON for: {title}")
+                continue
 
-        target_audience = result.get(
-            "target_audience",
-            ""
-        )
+            gemini_category = result.get(
+                "category",
+                "Other"
+            )
 
-        gemini_reason = result.get(
-            "reason",
-            ""
-        )
+            gemini_affects = result.get(
+                "affects_finance",
+                0
+            )
 
-        cursor.execute("""
-        UPDATE notifications
-        SET gemini_category=?,
-            gemini_affects_finance=?,
-            gemini_summary=?,
-            gemini_reason=?,
-            impact_level=?,
-            target_audience=?
-        WHERE id=?
-        """,
-        (
-            gemini_category,
-            gemini_affects,
-            gemini_summary,
-            gemini_reason,
-            impact_level,
-            target_audience,
-            notification_id
-        ))
+            gemini_summary = result.get(
+                "summary",
+                ""
+            )
 
-        conn.commit()
+            impact_level = result.get(
+                "impact_level",
+                "Low"
+            )
 
-        print(f"✓ {title}")
-        print(f"  Category: {gemini_category}")
-        print(f"  Affects Finance: {gemini_affects}")
-        print(f"  Impact Level: {impact_level}")
-        print(f"  Target Audience: {target_audience}")
-        print(f"  Summary: {gemini_summary}")
-        print(f"  Reason: {gemini_reason}")
-        print()
+            target_audience = result.get(
+                "target_audience",
+                ""
+            )
 
-        time.sleep(2)
+            gemini_reason = result.get(
+                "reason",
+                ""
+            )
 
-    except Exception as e:
+            cursor.execute("""
+            UPDATE notifications
+            SET gemini_category=?,
+                gemini_affects_finance=?,
+                gemini_summary=?,
+                gemini_reason=?,
+                impact_level=?,
+                target_audience=?
+            WHERE id=?
+            """,
+            (
+                gemini_category,
+                gemini_affects,
+                gemini_summary,
+                gemini_reason,
+                impact_level,
+                target_audience,
+                notification_id
+            ))
 
-        print(f"\n✗ Failed: {title}")
-        print(e)
+            conn.commit()
 
-        if "429" in str(e):
-            print("\nQuota exceeded. Stopping classifier.")
-            break
+            classified_count += 1
 
-        print()
+            print(f"✓ {title}")
+            print(f"  Category: {gemini_category}")
+            print(f"  Affects Finance: {gemini_affects}")
+            print(f"  Impact Level: {impact_level}")
+            print(f"  Target Audience: {target_audience}")
+            print(f"  Summary: {gemini_summary}")
+            print(f"  Reason: {gemini_reason}")
+            print()
 
-conn.close()
+            time.sleep(2)
 
-print("\nGemini Classification Complete!")
+        except Exception as e:
+
+            print(f"\n✗ Failed: {title}")
+            print(e)
+
+            if "429" in str(e):
+                print("\nQuota exceeded. Stopping classifier.")
+                break
+
+            print()
+
+    conn.close()
+
+    return classified_count
+
+
+if __name__ == "__main__":
+
+    count = classify_unclassified()
+    print(f"\nGemini Classification Complete!")
+    print(f"Classified {count} notifications.")

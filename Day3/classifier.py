@@ -1,4 +1,7 @@
 def classify_notification(text):
+    """Rule-based notification classifier.
+    Returns (affects_finance, category) tuple."""
+
     text = text.lower()
 
     # Interest Rates
@@ -95,37 +98,44 @@ def classify_notification(text):
     return 0, "Other"
 
 
-import sqlite3
+def run_classification(db_path="finance_digest.db"):
+    """Run rule-based classification on all notifications."""
 
-conn = sqlite3.connect("finance_digest.db")
-cursor = conn.cursor()
+    import sqlite3
 
-cursor.execute("""
-SELECT id, title
-FROM notifications
-""")
-
-rows = cursor.fetchall()
-
-for row in rows:
-
-    notification_id, title = row
-
-    affects_finance, category = classify_notification(title)
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
 
     cursor.execute("""
-    UPDATE notifications
-    SET category = ?,
-        affects_finance = ?
-    WHERE id = ?
-    """,
-    (
-        category,
-        affects_finance,
-        notification_id
-    ))
+    SELECT id, title
+    FROM notifications
+    """)
 
-conn.commit()
-conn.close()
+    rows = cursor.fetchall()
 
-print("Classification complete!")
+    for row in rows:
+
+        notification_id, title = row
+
+        affects_finance, category = classify_notification(title)
+
+        cursor.execute("""
+        UPDATE notifications
+        SET category = ?,
+            affects_finance = ?
+        WHERE id = ?
+        """,
+        (
+            category,
+            affects_finance,
+            notification_id
+        ))
+
+    conn.commit()
+    conn.close()
+
+    print("Classification complete!")
+
+
+if __name__ == "__main__":
+    run_classification()

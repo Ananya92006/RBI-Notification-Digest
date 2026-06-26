@@ -55,6 +55,7 @@
             padding:10px;
             border-radius:5px;
             border:1px solid #ccc;
+            box-sizing:border-box;
         }
 
         button{
@@ -68,6 +69,11 @@
 
         button:hover{
             background:#1d4ed8;
+        }
+
+        button:disabled{
+            background:#9ca3af;
+            cursor:not-allowed;
         }
 
         table{
@@ -120,6 +126,32 @@
             border-radius:5px;
         }
 
+        /* Honeypot — invisible to humans */
+        .hp-field{
+            position:absolute;
+            left:-9999px;
+            opacity:0;
+            height:0;
+            width:0;
+            overflow:hidden;
+        }
+
+        .quota-info{
+            font-size:0.85em;
+            color:#6b7280;
+            margin-top:8px;
+        }
+
+        .char-count{
+            font-size:0.85em;
+            color:#6b7280;
+            margin-top:4px;
+        }
+
+        .char-count.warn{
+            color:#dc2626;
+        }
+
     </style>
 
 </head>
@@ -156,19 +188,43 @@
 
     <h2>Analyze New RBI Notification</h2>
 
-    <form method="POST">
+    <form method="POST" id="analyzeForm">
+
+        <!-- Honeypot field — invisible to humans, bots auto-fill it -->
+        <div class="hp-field">
+            <label for="website">Website</label>
+            <input type="text" name="website" id="website"
+                   tabindex="-1" autocomplete="off">
+        </div>
 
         <textarea
             name="notification"
+            id="notificationInput"
             rows="6"
-            placeholder="Paste RBI notification title or details here..."
-            required></textarea>
+            placeholder="Paste RBI notification title or details here (min 20 characters)..."
+            required
+            minlength="20"></textarea>
 
-        <br><br>
+        <div class="char-count" id="charCount">0 / 20 characters minimum</div>
 
-        <button type="submit">
+        <br>
+
+        <button type="submit" id="analyzeBtn"
+            {% if quota_remaining is defined and quota_remaining <= 0 %}
+                disabled
+            {% endif %}>
             Analyze with Gemini
         </button>
+
+        {% if quota_remaining is defined %}
+        <span class="quota-info">
+            {% if quota_remaining > 0 %}
+                {{ quota_remaining }} analyses remaining today
+            {% else %}
+                Daily analysis limit reached. Try again tomorrow.
+            {% endif %}
+        </span>
+        {% endif %}
 
     </form>
 
@@ -257,6 +313,51 @@
     </div>
 
 </div>
+
+<!-- Client-side protections -->
+<script>
+
+    // Character counter with minimum length feedback
+    const textarea = document.getElementById("notificationInput");
+    const charCount = document.getElementById("charCount");
+    const MIN_LENGTH = 20;
+
+    textarea.addEventListener("input", function() {
+        const len = this.value.trim().length;
+        charCount.textContent = len + " / " + MIN_LENGTH + " characters minimum";
+
+        if (len > 0 && len < MIN_LENGTH) {
+            charCount.classList.add("warn");
+        } else {
+            charCount.classList.remove("warn");
+        }
+    });
+
+    // Button cooldown — 10 seconds after each submit
+    const form = document.getElementById("analyzeForm");
+    const btn = document.getElementById("analyzeBtn");
+
+    form.addEventListener("submit", function() {
+
+        const text = textarea.value.trim();
+
+        if (text.length < MIN_LENGTH) {
+            alert("Please enter at least " + MIN_LENGTH + " characters.");
+            event.preventDefault();
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Analyzing... please wait";
+
+        // Re-enable after 10 seconds (in case page doesn't reload)
+        setTimeout(function() {
+            btn.disabled = false;
+            btn.textContent = "Analyze with Gemini";
+        }, 10000);
+    });
+
+</script>
 
 </body>
 </html>

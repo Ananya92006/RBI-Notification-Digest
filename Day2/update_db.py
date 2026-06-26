@@ -1,27 +1,36 @@
 import sqlite3
 
-conn = sqlite3.connect("finance_digest.db")
-cursor = conn.cursor()
 
-columns = [
-    ("gemini_summary", "TEXT"),
-    ("gemini_reason", "TEXT"),
-    ("impact_level", "TEXT"),
-    ("target_audience", "TEXT")
-]
+def update_database(db_path="finance_digest.db"):
+    """Add summary, reason, impact, and audience columns."""
 
-for column_name, column_type in columns:
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
 
-    try:
-        cursor.execute(
-            f"ALTER TABLE notifications ADD COLUMN {column_name} {column_type}"
-        )
-        print(f"{column_name} added")
+    columns = [
+        ("gemini_summary", "TEXT"),
+        ("gemini_reason", "TEXT"),
+        ("impact_level", "TEXT"),
+        ("target_audience", "TEXT")
+    ]
 
-    except Exception:
-        print(f"{column_name} already exists")
+    for column_name, column_type in columns:
 
-conn.commit()
-conn.close()
+        try:
+            cursor.execute(
+                f"ALTER TABLE notifications ADD COLUMN "
+                f"{column_name} {column_type}"
+            )
+            print(f"{column_name} added")
 
-print("\nDatabase Updated Successfully!")
+        except Exception:
+            print(f"{column_name} already exists")
+
+    conn.commit()
+    conn.close()
+
+    print("\nDatabase Updated Successfully!")
+
+
+if __name__ == "__main__":
+    update_database()
