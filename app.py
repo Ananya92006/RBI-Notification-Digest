@@ -48,18 +48,18 @@ rate_limiter = RateLimiter(max_requests=5, window_seconds=60)
 
 
 # -----------------------------------------------
-# Gemini Model — lazy initialization
+# Gemini Client — lazy initialization
 # -----------------------------------------------
-_gemini_model = None
+_gemini_client = None
 
 
-def get_gemini_model():
-    """Lazy-initialize the Gemini model so the app
+def get_gemini_client():
+    """Lazy-initialize the Gemini client so the app
     doesn't crash at startup if no API key is set."""
 
-    global _gemini_model
+    global _gemini_client
 
-    if _gemini_model is None:
+    if _gemini_client is None:
 
         api_key = os.getenv("GEMINI_API_KEY")
 
@@ -69,12 +69,11 @@ def get_gemini_model():
                 "Please set it in the .env file."
             )
 
-        genai.configure(api_key=api_key)
-        _gemini_model = genai.GenerativeModel(
-            "gemini-2.5-flash"
+        _gemini_client = genai.Client(
+            api_key=api_key
         )
 
-    return _gemini_model
+    return _gemini_client
 
 
 # -----------------------------------------------
@@ -265,9 +264,10 @@ Notification:
 
                     try:
 
-                        model = get_gemini_model()
-                        response = model.generate_content(
-                            prompt
+                        client = get_gemini_client()
+                        response = client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=prompt
                         )
 
                         result = response.text.strip()
